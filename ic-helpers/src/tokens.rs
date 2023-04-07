@@ -380,10 +380,46 @@ impl std::fmt::Debug for Tokens256 {
     }
 }
 
+#[derive(Debug, CandidType, Deserialize, Copy, Clone, Default, PartialEq, Eq)]
+pub struct Pair(pub Tokens128, pub Tokens128);
+
+impl From<(Tokens128, Tokens128)> for Pair {
+    fn from((x, y): (Tokens128, Tokens128)) -> Self {
+        Pair(x, y)
+    }
+}
+
+impl From<(u128, u128)> for Pair {
+    fn from((x, y): (u128, u128)) -> Self {
+        Pair(x.into(), y.into())
+    }
+}
+
+impl Pair {
+    pub fn get_part(&self, total_liquidity: Tokens128, requested_liquidity: Tokens128) -> Self {
+        if total_liquidity.is_zero() {
+            return Self(Tokens128::ZERO, Tokens128::ZERO);
+        }
+
+        let requested_checked = requested_liquidity.min(total_liquidity);
+        Self(
+            (requested_checked * self.0 / total_liquidity)
+                .expect("checked for zero above")
+                .to_tokens128()
+                .expect("checked that request is smaller that total"),
+            (requested_checked * self.1 / total_liquidity)
+                .expect("checked for zero above")
+                .to_tokens128()
+                .expect("checked that request is smaller that total"),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use candid::{Decode, Encode, Nat};
     use crypto_bigint::CheckedMul;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
     use super::*;
 
@@ -539,5 +575,29 @@ mod tests {
         );
         let num = Tokens256::MAX;
         assert_eq!(&format!("{num:?}"), "Tokens256(115792089237316195423570985008687907853269984665640564039457584007913129639935)");
+    }
+
+    //     Reserves: Pair(Tokens128 { amount: 3750725353041 }, Tokens128 { amount: 45396456775035 }). Amounts to subtract: Pair(Tokens128 { amount: 2121375568479850814968 }, Tokens128 { amount: 25843888447267314197202 }). Liquidity: Tokens128 { amount: 1729659673174 }. Fee to mint: Tokens128 { amount: 0 }. Total supply with fee: Tokens128 { amount: 13048718096123 }', src/pair/src/state.rs:366:32
+
+    #[wasm_bindgen_test]
+    fn test_get_part() {
+        let pair = Pair::from((3750725353041, 45396456775035));
+        let part = pair.get_part(13048718096123.into(), 1729659673174.into());
+
+        // Part: Pair(Tokens128 { amount: 497173618168 }, Tokens128 { amount: 6017481564882 })
+
+        assert_eq!(
+            part,
+            Pair(
+                Tokens128 {
+                    amount: 497173618168,
+                },
+                Tokens128 {
+                    amount: 6017481564882,
+                },
+            ),
+        );
+
+        eprintln!("Part: {:?}", part);
     }
 }

@@ -29,3 +29,4 @@ getrandom = { version = "0.2.6", features = ["custom"]}
 
 [dev-dependencies]
 hex = "0.4"
+wasm-bindgen-test = "0.3"
