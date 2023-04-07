@@ -244,15 +244,22 @@ impl Tokens256 {
     /// Converts the value to Tokens128. Returns `None` if the value is greater
     /// than `Tokens128::MAX`.
     pub fn to_tokens128(&self) -> Option<Tokens128> {
-        let bytes = self.0.to_le_bytes();
-        let mut num = 0;
-        for (i, &byte) in bytes.iter().enumerate().take(Tokens128::BYTE_LENGTH) {
-            num += byte as u128 * 256u128.pow(i as u32);
-        }
-
-        if bytes[16..].iter().any(|&byte| byte != 0) {
+        let limbs = self.0.limbs();
+        if limbs[2].0 != 0 || limbs[3].0 != 0 {
             return None;
         }
+
+        let num = limbs[0].0 as u128 + limbs[1].0 as u128 * (u64::MAX as u128 + 1);
+
+        // let bytes = self.0.to_le_bytes();
+        // let mut num = 0;
+        // for (i, &byte) in bytes.iter().enumerate().take(Tokens128::BYTE_LENGTH) {
+        //     num += byte as u128 * 256u128.pow(i as u32);
+        // }
+
+        // if bytes[16..].iter().any(|&byte| byte != 0) {
+        //     return None;
+        // }
 
         Some(Tokens128::from(num))
     }
@@ -579,7 +586,7 @@ mod tests {
 
     //     Reserves: Pair(Tokens128 { amount: 3750725353041 }, Tokens128 { amount: 45396456775035 }). Amounts to subtract: Pair(Tokens128 { amount: 2121375568479850814968 }, Tokens128 { amount: 25843888447267314197202 }). Liquidity: Tokens128 { amount: 1729659673174 }. Fee to mint: Tokens128 { amount: 0 }. Total supply with fee: Tokens128 { amount: 13048718096123 }', src/pair/src/state.rs:366:32
 
-    #[wasm_bindgen_test]
+    #[test]
     fn test_get_part() {
         let pair = Pair::from((3750725353041, 45396456775035));
         let part = pair.get_part(13048718096123.into(), 1729659673174.into());
